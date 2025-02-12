@@ -1,0 +1,23 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Error</h1>
+    <p>{{error|capitalize }}</p>
+    <button type="button" onclick="window.location.href='{{ url_for( 'index') }}';">Back to Home</button>
+</body>
+</html> -->
+
+
+{% extends 'base.html' %}
+
+{% block content %}
+
+    <h1>404 Error</h1>
+    <p>Page not found - Try Again...</p>
+
+{% endblock %}

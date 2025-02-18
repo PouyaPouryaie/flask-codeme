@@ -20,6 +20,7 @@
         <tr>
             <td>
                 {{ our_user.id }} - <a href="{{ url_for('update_user', id=our_user.id) }}"> {{ our_user.name }} </a> - {{ our_user.email }} - {{ our_user.favorite_color }}
+                - <a href="{{ url_for('delete_user', id=our_user.id) }}" class="btn btn-danger"> Delete </a>
             </td>
         </tr>
         {% endfor %}
@@ -28,7 +29,7 @@
     <h1>User List:</h1>
     <br>
     <div class="shadow p-3 mb-5 bg-body rounded">
-        <form method="post">
+        <form action="/user/add" method="post">
             {{ form.hidden_tag() }}
             {{ form.name.label(class="form-label") }}
             {{ form.name(class="form-control") }}
@@ -50,6 +51,7 @@
         <tr>
             <td>
                 {{ our_user.id }} - <a href="{{ url_for('update_user', id=our_user.id) }}"> {{ our_user.name }} </a> - {{ our_user.email }} - {{ our_user.favorite_color }}
+                - <a href="{{ url_for('delete_user', id=our_user.id) }}" class="btn btn-danger"> delete </a>
             </td>
         </tr>
         {% endfor %}

@@ -98,6 +98,25 @@ def update_user(id):
         return render_template('update_user.html', form=form, user_to_update=user_to_update) 
 
 
+# Delete userForm
+@app.get('/user/delete/<int:id>')
+def delete_user(id):
+    user_to_delete = Users.query.get_or_404(id)
+    name = None
+    email = None
+    favorite_color = None
+    form = UserForm()
+    try:
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        flash("User deleted successfully!")
+        our_users = Users.query.order_by(Users.date_added)
+        return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
+    except:
+        flash("Error, There was a problem deleting user, try again!")
+        our_users = Users.query.order_by(Users.date_added)
+        return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
+
 # Create a Form Class
 class ClassForm(FlaskForm):
     name = StringField("What's your name?", validators=[DataRequired()])

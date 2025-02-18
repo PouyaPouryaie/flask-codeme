@@ -1,10 +1,11 @@
 from flask import Flask, render_template, flash, request
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField
-from wtforms.validators import DataRequired
+from wtforms import StringField, SubmitField, PasswordField, BooleanField, ValidationError
+from wtforms.validators import DataRequired, EqualTo, Length
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_migrate import Migrate
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -30,6 +31,18 @@ class Users(db.Model):
     email = db.Column(db.String(120), nullable=False, unique=True)
     favorite_color = db.Column(db.String(120))
     date_added = db.Column(db.DateTime, default=datetime.now)
+    password_hash = db.Column(db.String(255))
+
+    @property
+    def password(self):
+        raise AttributeError('password is not readable attribute!')
+    
+    @password.setter
+    def password(self, password):
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+    
+    def verify_password(self, password):
+        return check_password_hash(self.password_hash, password)
     
     # Create A String
     def __repr__(self):
@@ -46,6 +59,8 @@ class UserForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired()])
     email = StringField("Email", validators=[DataRequired()])
     favorite_color = StringField("Favorite Color")
+    password_hash = PasswordField("Password", validators=[DataRequired(), EqualTo('password_hash_confirmed', message='password is not match with confirmed password')])
+    password_hash_confirmed = PasswordField("Confirmed Password", validators=[DataRequired()])
     submit = SubmitField("Submit")
 
 
@@ -61,7 +76,7 @@ def add_user():
     if form.validate_on_submit():
         user = Users.query.filter_by(email=form.email.data).first()
         if user is None:
-            user = Users(name=form.name.data, email=form.email.data, favorite_color=form.favorite_color.data)
+            user = Users(name=form.name.data, email=form.email.data, favorite_color=form.favorite_color.data, password = form.password_hash.data)
             db.session.add(user)
             db.session.commit()
         name = form.name.data
@@ -70,12 +85,13 @@ def add_user():
         form.email.data = ''
         favorite_color = form.favorite_color.data
         form.favorite_color.data = ''
+        form.password_hash.data = ''
+        form.password_hash_confirmed.data = ''
 
         flash("User Added submitted successfully!") # push message to the form
 
     our_users = Users.query.order_by(Users.date_added)
     return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
-
 
 # update userForm
 @app.route('/user/update/<int:id>', methods=['GET', 'POST'])
@@ -142,6 +158,10 @@ def index():
     first_name = "Pouya"
     stuff = "this is blod text"
     return render_template("index.html", favorite_pizza=items, first_name=first_name, stuff=stuff)
+
+@app.route('/date')
+def return_json_format_date():
+    return { "Date": datetime.now() }
 
 @app.get('/user/<string:user>')
 def get_user(user):

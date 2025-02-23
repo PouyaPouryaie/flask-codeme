@@ -25,3 +25,6 @@ You can check your code using flask shell. for that you just need to follow thes
         - options: change method of encryption: `method='pbkdf2:sha256'`
 - For Return Json at Flask:
     - you just need to produce a dictionary result, flask will return json object automatically
+
+### Requirements
+- MySQL: `docker run --name flask-mysql -e MYSQL_ROOT_PASSWORD=123 -p 3306:3306 -d mysql:9.2.0`

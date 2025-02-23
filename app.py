@@ -1,6 +1,7 @@
-from flask import Flask, render_template, flash, request
+from flask import Flask, render_template, flash, request, redirect, url_for
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, PasswordField, BooleanField, ValidationError
+from wtforms.widgets import TextArea
 from wtforms.validators import DataRequired, EqualTo, Length
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -23,6 +24,94 @@ db = SQLAlchemy(app)
 
 # initialize Migrate
 migrate = Migrate(app, db)
+
+### Blog Post Area ###
+class Posts(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255))
+    content = db.Column(db.Text)
+    author = db.Column(db.String(255))
+    date_posted = db.Column(db.DateTime, default=datetime.now)
+    slug = db.Column(db.String(255))
+
+class PostForm(FlaskForm):
+    title = StringField("Title", validators=[DataRequired()])
+    content = StringField("Content", validators=[DataRequired()], widget=TextArea())
+    author = StringField("Author", validators=[DataRequired()])
+    slug = StringField("Slug",validators=[DataRequired()])
+    submit = SubmitField("Submit")
+
+@app.get('/posts')
+def posts():
+    # Grab all the posts from the database
+    posts = Posts.query.order_by(Posts.date_posted)
+    return render_template('posts.html', posts=posts)
+
+@app.route('/posts/add', methods=['GET', 'POST'])
+def add_post():
+    form = PostForm()
+
+    if request.method == 'POST' and form.validate_on_submit():
+        post = Posts(title=request.form['title'], content=request.form['content'], author=request.form['author'], slug=request.form['slug'])
+        
+        # clear form
+        form.title.data = ''
+        form.content.data = ''
+        form.author.data = ''
+        form.slug.data = ''
+        
+        # add to db
+        db.session.add(post)
+        db.session.commit()
+
+		# Return a Message
+        flash("Blog Post Submitted Successfully!")
+
+	# Redirect to the webpage
+    return render_template("add_post.html", form=form)
+
+@app.route('/posts/<int:id>', methods=['GET'])
+def get_post(id):
+    post = Posts.query.get_or_404(id)
+    return render_template("post.html", post=post)
+
+@app.route('/posts/update/<int:id>', methods=['GET', 'POST'])
+def update_post(id):
+    post = Posts.query.get_or_404(id)
+    form = PostForm()
+
+    if form.validate_on_submit():
+        post.title = form.title.data
+        post.content = form.content.data
+        post.author = form.author.data
+        post.slug = form.slug.data
+        db.session.commit()
+        flash("Post Has Been Updated!")
+        return redirect(url_for("get_post", id=id))
+    
+    form.title.data = post.title
+    form.content.data = post.content
+    form.author.data = post.author
+    form.slug.data = post.slug
+    return render_template("edit_post.html", form=form, id=id)
+
+@app.route("/posts/delete/<int:id>", methods=['GET'])
+def delete_post(id):
+    post_to_delete = Posts.query.get_or_404(id)
+
+    try:
+        db.session.delete(post_to_delete)  # Use the instance!
+        db.session.commit()
+        flash("Post was Deleted!")
+        return redirect(url_for('posts'))
+    except Exception as e:
+        db.session.rollback() # Important: Rollback on error
+        flash(f"There was a problem deleting the post: {e}") # Include error message
+        return redirect(url_for('posts'))
+
+
+
+### Blog Post Area End ###
 
 # Create Model
 class Users(db.Model):
@@ -107,8 +196,9 @@ def update_user(id):
             db.session.commit()
             flash("User Updated successfully!")
             return render_template('update_user.html', form=form, user_to_update=user_to_update)
-        except:
-            flash("Error! Please Try Again!")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"There was a problem updating the User: {e}")
             return render_template('update_user.html', form=form, user_to_update=user_to_update)
     else:
         return render_template('update_user.html', form=form, user_to_update=user_to_update) 
@@ -128,8 +218,9 @@ def delete_user(id):
         flash("User deleted successfully!")
         our_users = Users.query.order_by(Users.date_added)
         return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
-    except:
-        flash("Error, There was a problem deleting user, try again!")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"There was a problem deleting the User: {e}")
         our_users = Users.query.order_by(Users.date_added)
         return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
 

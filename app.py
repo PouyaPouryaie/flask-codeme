@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin, LoginManager, login_user, logout_user, login_required, current_user
 
 app = Flask(__name__)
 
@@ -24,6 +25,51 @@ db = SQLAlchemy(app)
 
 # initialize Migrate
 migrate = Migrate(app, db)
+
+# initialize LoginManager
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Users.query.get(int(user_id))
+
+### Login Area ###
+class LoginForm(FlaskForm):
+    username = StringField("Username", validators=[DataRequired()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Submit")
+
+@app.route("/login", methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+
+    if form.validate_on_submit():
+        user = Users.query.filter_by(username=form.username.data).first()
+
+        if user:
+            # check password
+            if user.verify_password(form.password.data):
+                login_user(user)
+                flash("Login successful!!!")
+                return redirect(url_for("dashboard"))
+            else:
+                flash("Worng Password, Try Again!!!")
+        else:
+            flash("That username doesn't exist, Try Again!!!")
+
+    return render_template("login.html", form=form)
+
+
+@app.route("/logout", methods=['GET', 'POST'])
+@login_required
+def logout():
+    logout_user()
+    flash("You Have been logged out!")
+    return redirect(url_for("login"))
+
+### Login Area End ###
 
 ### Blog Post Area ###
 class Posts(db.Model):
@@ -113,10 +159,37 @@ def delete_post(id):
 
 ### Blog Post Area End ###
 
+### Dashboard Area ###
+@app.route("/dashboard", methods=['GET', 'POST'])
+@login_required
+def dashboard():
+    form = UserForm()
+    id = current_user.id
+    user_to_update = Users.query.get_or_404(id)
+
+    if request.method == 'POST':
+        user_to_update.full_name = request.form['full_name']
+        user_to_update.username = request.form['username']
+        user_to_update.email = request.form['email']
+        user_to_update.favorite_color = request.form['favorite_color']
+        try:
+            db.session.commit()
+            flash("User Updated successfully!")
+            return render_template('dashboard.html', form=form, user_to_update=user_to_update)
+        except Exception as e:
+            db.session.rollback()
+            flash(f"There was a problem updating the User: {e}")
+            return render_template('dashboard.html', form=form, user_to_update=user_to_update)
+    else:
+        return render_template('dashboard.html', form=form, user_to_update=user_to_update)
+
+### Dashboard Area End ###
+
 # Create Model
-class Users(db.Model):
+class Users(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), nullable=False)
+    full_name = db.Column(db.String(255), nullable=False)
+    username = db.Column(db.String(255), nullable=False, unique=True)
     email = db.Column(db.String(120), nullable=False, unique=True)
     favorite_color = db.Column(db.String(120))
     date_added = db.Column(db.DateTime, default=datetime.now)
@@ -135,7 +208,7 @@ class Users(db.Model):
     
     # Create A String
     def __repr__(self):
-        return '<Name %r>' % self.name
+        return '<Full Name %r>' % self.full_name
 
 # Create the database tables (run this only once, or when you change your models)
 # Important! Use app context when working with the db outside of a route
@@ -145,7 +218,8 @@ class Users(db.Model):
 
 # Create a UserForm Class
 class UserForm(FlaskForm):
-    name = StringField("Name", validators=[DataRequired()])
+    full_name = StringField("Full Name", validators=[DataRequired()])
+    username = StringField("Username", validators=[DataRequired()])
     email = StringField("Email", validators=[DataRequired()])
     favorite_color = StringField("Favorite Color")
     password_hash = PasswordField("Password", validators=[DataRequired(), EqualTo('password_hash_confirmed', message='password is not match with confirmed password')])
@@ -156,8 +230,9 @@ class UserForm(FlaskForm):
 # Create userForm Page
 @app.route('/user/add', methods=['GET', 'POST'])
 def add_user():
-    name = None
+    full_name = None
     email = None
+    username = None
     favorite_color = None
     form = UserForm()
 
@@ -165,11 +240,13 @@ def add_user():
     if form.validate_on_submit():
         user = Users.query.filter_by(email=form.email.data).first()
         if user is None:
-            user = Users(name=form.name.data, email=form.email.data, favorite_color=form.favorite_color.data, password = form.password_hash.data)
+            user = Users(full_name=form.full_name.data, username=form.username.data, email=form.email.data, favorite_color=form.favorite_color.data, password = form.password_hash.data)
             db.session.add(user)
             db.session.commit()
-        name = form.name.data
-        form.name.data = ''
+        full_name = form.full_name.data
+        form.full_name.data = ''
+        username = form.username.data
+        form.username.data = ''
         email = form.email.data
         form.email.data = ''
         favorite_color = form.favorite_color.data
@@ -180,7 +257,7 @@ def add_user():
         flash("User Added submitted successfully!") # push message to the form
 
     our_users = Users.query.order_by(Users.date_added)
-    return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
+    return render_template('add_user.html', full_name=full_name, username=username, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
 
 # update userForm
 @app.route('/user/update/<int:id>', methods=['GET', 'POST'])
@@ -189,7 +266,8 @@ def update_user(id):
     user_to_update = Users.query.get_or_404(id)
 
     if request.method == 'POST':
-        user_to_update.name = request.form['name']
+        user_to_update.full_name = request.form['full_name']
+        user_to_update.username = request.form['username']
         user_to_update.email = request.form['email']
         user_to_update.favorite_color = request.form['favorite_color']
         try:
@@ -208,7 +286,8 @@ def update_user(id):
 @app.get('/user/delete/<int:id>')
 def delete_user(id):
     user_to_delete = Users.query.get_or_404(id)
-    name = None
+    full_name = None
+    username=None
     email = None
     favorite_color = None
     form = UserForm()
@@ -217,12 +296,12 @@ def delete_user(id):
         db.session.commit()
         flash("User deleted successfully!")
         our_users = Users.query.order_by(Users.date_added)
-        return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
+        return render_template('add_user.html', full_name=full_name, username=username, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
     except Exception as e:
         db.session.rollback()
         flash(f"There was a problem deleting the User: {e}")
         our_users = Users.query.order_by(Users.date_added)
-        return render_template('add_user.html', name=name, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
+        return render_template('add_user.html', full_name=full_name, username=username, email=email, favorite_color=favorite_color, form=form, our_users = our_users)
 
 # Create a Form Class
 class ClassForm(FlaskForm):

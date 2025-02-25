@@ -21,8 +21,11 @@
     <div class="shadow p-3 mb-5 bg-body rounded">
         <form action="/user/update/{{ user_to_update.id }}" method="post">
             {{ form.hidden_tag() }}
-            {{ form.name.label(class="form-label") }}
-            {{ form.name(class="form-control", value=user_to_update.name) }}
+            {{ form.full_name.label(class="form-label") }}
+            {{ form.full_name(class="form-control", value=user_to_update.full_name) }}
+            <br>
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control", value=user_to_update.username) }}
             <br>
             {{ form.email.label(class="form-label") }}
             {{ form.email(class="form-control", value=user_to_update.email) }}

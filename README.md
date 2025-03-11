@@ -41,3 +41,6 @@ requirements are: flask-login -> [Flask-Login](https://flask-login.readthedocs.i
 
 ### Requirements
 - MySQL: `docker run --name flask-mysql -e MYSQL_ROOT_PASSWORD=123 -p 3306:3306 -d mysql:9.2.0`
+
+### Link of Tutorial
+- [Flask - YouTube](https://www.youtube.com/watch?v=4uU_uhg-8gM)
